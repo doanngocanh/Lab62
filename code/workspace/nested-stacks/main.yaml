@@ -35,26 +35,22 @@ Parameters:
   DBInstanceIdentifier:
     Type: String
     Description: tên duy nhất cho DB instance.
-    Default: lab62-anh-rds
+    Default: lab62rdssss
 
   DBName:
     Type: String
     Description: Tên của cơ sở dữ liệu ban đầu mà bạn muốn tạo trong phiên bản RDS này
-    Default: WODWHORAA
+    Default: OODWHOR
 
   MasterUsername:
     Type: String
     Description: Tên người dùng chính cho phiên bản RDS.
-    Default: Lab62Abcd1234
+    Default: Lab62Abcd12346L
 
   MasterUserPassword:
     Type: String
     Description: Mật khẩu cho tài khoản người dùng chính (master user).
-    Default: Lab621234@
-
-  Timezone:
-    Type: String
-    Default: Asia/Tokyo
+    Default: Lab62Abcd1234!
 
   DBInstanceClass:
     Type: String
@@ -97,7 +93,6 @@ Resources:
         DBName: !Ref DBName
         MasterUsername: !Ref MasterUsername
         MasterUserPassword: !Ref MasterUserPassword
-        Timezone: !Ref Timezone
         DBInstanceClass: !Ref DBInstanceClass
         AllocatedStorage: !Ref AllocatedStorage
         StorageType: !Ref StorageType

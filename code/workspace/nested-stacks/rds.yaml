@@ -13,14 +13,13 @@ Parameters:
     Type: String
   MasterUserPassword:
     Type: String
-  Timezone:
-    Type: String
   DBInstanceClass:
     Type: String
   AllocatedStorage:
     Type: Number
   StorageType:
     Type: String
+
 Resources:
   rdsDBInstance:
     Type: AWS::RDS::DBInstance
@@ -41,9 +40,6 @@ Resources:
       Engine: oracle-se2-cdb
       EngineVersion: 19.0.0.0.ru-2023-04.rur-2023-04.r1
       StorageType: !Ref StorageType
-      Iops: 12000
-      StorageThroughput: 500
-      StorageAutoScaling: false
       LicenseModel: license-included
       MasterUsername: !Ref MasterUsername
       MasterUserPassword: !Ref MasterUserPassword
@@ -74,7 +70,6 @@ Resources:
     Type: AWS::RDS::DBSubnetGroup
     Properties:
       DBSubnetGroupDescription: DWH01-OSAKA-DWH-Prod-INT
-      VpcId: !ImportValue Lab62VPCId
       SubnetIds:
         - !ImportValue Lab62PrivateSubnet1Id
         - !ImportValue Lab62PrivateSubnet2Id
@@ -88,10 +83,6 @@ Resources:
       EngineName: "oracle-se2-cdb"
       MajorEngineVersion: "19"
       OptionConfigurations:
-        - OptionName: "Timezone"
-          OptionSettings:
-            - Name: "TIMEZONE"
-              Value: !Ref Timezone
         - OptionName: "STATSPACK"
       OptionGroupDescription: "WODWHORA-Prod-INT"
       OptionGroupName: "wodwhora-prod-int"
