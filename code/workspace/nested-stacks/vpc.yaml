@@ -1,0 +1,493 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description: AWS CloudFormation workshop - Nested stacks - VPC template.
+
+Parameters:
+  AvailabilityZones:
+    Type: List<AWS::EC2::AvailabilityZone::Name>
+    Description: The list of Availability Zones to use for the subnets in the VPC.
+
+  VPCName:
+    Type: String
+    Description: The name of the VPC.
+
+  VPCCidr:
+    Type: String
+    Description: The CIDR block for the VPC.
+
+  PublicSubnetCidr:
+    Type: String
+    Description: The CIDR block for the public subnet located in Availability Zone 1.
+
+  PrivateSubnet1Cidr:
+    Type: String
+    Description: The CIDR block for the private subnet located in Availability Zone 1.
+
+  PrivateSubnet2Cidr:
+    Type: String
+    Description: The CIDR block for the private subnet located in Availability Zone 2.
+
+Resources:
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref VPCCidr
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: !Ref VPCName
+
+  PublicSubet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Select [0, !Ref AvailabilityZones]
+      VpcId: !Ref VPC
+      CidrBlock: !Ref PublicSubnetCidr
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: DWH01-OSAKA-DWH-Prod-EXT-3a
+
+  PrivateSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Select [0, !Ref AvailabilityZones]
+      VpcId: !Ref VPC
+      CidrBlock: !Ref PrivateSubnet1Cidr
+      Tags:
+        - Key: Name
+          Value: DWH01-OSAKA-DWH-Prod-INT-3a
+
+  PrivateSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Select [1, !Ref AvailabilityZones]
+      VpcId: !Ref VPC
+      CidrBlock: !Ref PrivateSubnet2Cidr
+      Tags:
+        - Key: Name
+          Value: DWH01-OSAKA-DWH-Prod-INT-3c
+
+  #Tạo IGW
+  VPCIGW:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: DWH01-OSAKA
+
+  #Liên kết IGW với VPC
+  AttachGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref VPC
+      InternetGatewayId: !Ref VPCIGW
+
+  #Tạo public route table
+  PublicSubnetRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: DWH01-OSAKA-DWH-Prod-EXT-3a
+
+  #Tạo private route table 1
+  PrivateSubnetRouteTable1:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: DWH01-OSAKA-DWH-Prod-INT-3a
+
+  #Tạo private route table 2
+  PrivateSubnetRouteTable2:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: DWH01-OSAKA-DWH-Prod-INT-3c
+
+  #Virtual Private Gateway
+  VIGW:
+    Type: AWS::EC2::VPNGateway
+    Properties:
+      Type: ipsec.1
+
+  VPCVGWAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId:
+        Ref: VPC
+      VpnGatewayId:
+        Ref: VIGW
+
+  # Virtual Private Gateway Route Propagation
+  VIGWyRoutePropagationPublicRt:
+    Type: AWS::EC2::VPNGatewayRoutePropagation
+    Properties:
+      RouteTableIds:
+        - !Ref PublicSubnetRouteTable
+      VpnGatewayId: !Ref VIGW
+
+  VPNGatewayRoutePropagationPrivateRt1:
+    Type: AWS::EC2::VPNGatewayRoutePropagation
+    Properties:
+      RouteTableIds:
+        - !Ref PrivateSubnetRouteTable1
+      VpnGatewayId: !Ref VIGW
+
+  VPNGatewayRoutePropagationPrivateRt2:
+    Type: AWS::EC2::VPNGatewayRoutePropagation
+    Properties:
+      RouteTableIds:
+        - !Ref PrivateSubnetRouteTable2
+      VpnGatewayId: !Ref VIGW
+
+  #Tạo liên kết Routetable với public subnet
+  PublicRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubet
+      RouteTableId: !Ref PublicSubnetRouteTable
+
+  #Tạo liên kết route table tới private subnet 1
+  PrivateRouteTable1Association:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnet1
+      RouteTableId: !Ref PrivateSubnetRouteTable1
+
+  #Tạo liên kết route table tới private subnet 2
+  PrivateRouteTable2Association:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnet2
+      RouteTableId: !Ref PrivateSubnetRouteTable2
+
+  #Tạo security group cho bastion host
+  BastionHostSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: DWH01-OSAKA-DWH-BASTION
+      GroupDescription: DWH01-OSAKA-DWH-BASTION
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 3389
+          ToPort: 3389
+          CidrIp: 122.20.253.63/32
+          Description: For info-sense access
+        - IpProtocol: tcp
+          FromPort: 3389
+          ToPort: 3389
+          CidrIp: 202.32.38.1/32
+          Description: For KKA remote access
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+          Description: Allow SSH access
+      Tags:
+        - Key: Name
+          Value: DWH01-OSAKA-DWH-BASTION
+
+  #Tạo security group cho cloudwatch monitoring
+  CloudWatchMonitoringSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: DWH01-OSAKA-DWH-CW
+      GroupDescription: DWH01-OSAKA-DWH-CW
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+          Description: Allow SSH access
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 10.72.0.0/24
+          Description: For WODWHORA
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 10.72.0.185/32
+          Description: For WEBFOCUS
+      Tags:
+        - Key: Name
+          Value: DWH01-OSAKA-DWH-CW
+
+  #Tạo security group cho Cloudwatch EC2
+  CloudWatchEC2SG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: DWH01-OSAKA-DWH-EC2
+      GroupDescription: DWH01-OSAKA-DWH-EC2
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+          Description: Allow SSH access
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 10.72.0.185/32
+          Description: For WEBFOCUS
+      Tags:
+        - Key: Name
+          Value: DWH01-OSAKA-DWH-EC2
+
+  #Tạo security group cho web focus
+  WebFocusSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: DWH01-OSAKA-DWH-WEBFOCUS
+      GroupDescription: DWH01-OSAKA-DWH-WEBFOCUS
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+          Description: Allow SSH access
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 10.0.0.0/8
+          Description: For OnP (WebFOCUS user access)
+        - IpProtocol: tcp
+          FromPort: 8080
+          ToPort: 8080
+          CidrIp: 10.0.0.0/8
+          Description: For OnP (WebFOCUS user access)
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 10.1.0.0/16
+          Description: For OnP (Developer, Admin)
+        - IpProtocol: tcp
+          FromPort: 3389
+          ToPort: 3389
+          CidrIp: 10.1.0.0/16
+          Description: For OnP (Developer, Admin)
+        - IpProtocol: tcp
+          FromPort: 8121
+          ToPort: 8121
+          CidrIp: 10.1.0.0/16
+          Description: For OnP (Developer, Admin)
+        - IpProtocol: icmp
+          FromPort: 8
+          ToPort: -1
+          CidrIp: 10.1.0.0/16
+          Description: For OnP (Developer, Admin)
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 10.10.8.5/32
+          Description: For OnP (Developer, Admin)
+        - IpProtocol: tcp
+          FromPort: 8080
+          ToPort: 8080
+          CidrIp: 10.10.8.5/32
+          Description: For OnP (Developer, Admin)
+        - IpProtocol: tcp
+          FromPort: 8121
+          ToPort: 8121
+          CidrIp: 10.10.8.5/32
+          Description: For OnP (Developer, Admin)
+        - IpProtocol: tcp
+          FromPort: 8121
+          ToPort: 8121
+          CidrIp: 10.11.1.99/32
+          Description: For OnP (Developer, Admin)
+        - IpProtocol: tcp
+          FromPort: 8121
+          ToPort: 8121
+          CidrIp: 10.11.1.101/32
+          Description: For OnP (Developer, Admin)
+        - IpProtocol: tcp
+          FromPort: 3389
+          ToPort: 3389
+          CidrIp: 10.72.32.108/32
+          Description: For BASTION
+      Tags:
+        - Key: Name
+          Value: DWH01-OSAKA-DWH-WEBFOCUS
+
+  #Tạo security group cho DWH
+  DWHSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: DWH01-OSAKA-DWH-WODWHORA
+      GroupDescription: DWH01-OSAKA-DWH-WODWHORA
+
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+          Description: Allow SSH access
+        - IpProtocol: tcp
+          FromPort: 1521
+          ToPort: 1521
+          CidrIp: 10.1.0.0/16
+          Description: For OnP (Developer, Admin)
+        - IpProtocol: tcp
+          FromPort: 1521
+          ToPort: 1521
+          CidrIp: 10.1.14.226/32
+          Description: For OnP (Oracle Prod)
+        - IpProtocol: tcp
+          FromPort: 1521
+          ToPort: 1521
+          CidrIp: 10.1.14.227/32
+          Description: For OnP (Oracle Prod)
+        - IpProtocol: tcp
+          FromPort: 1521
+          ToPort: 1521
+          CidrIp: 10.11.1.99/32
+          Description: For OnP (Developer, Admin) HISATOSHI
+        - IpProtocol: tcp
+          FromPort: 1521
+          ToPort: 1521
+          CidrIp: 10.11.1.101/32
+          Description: For OnP (Developer, Admin) YAMAGUCHI
+        - IpProtocol: tcp
+          FromPort: 1521
+          ToPort: 1521
+          CidrIp: 10.4.14.226/32
+          Description: For OnP (Oracle Devl)
+        - IpProtocol: tcp
+          FromPort: 1521
+          ToPort: 1521
+          CidrIp: 10.72.0.185/32
+          Description: For WEBFOCUS
+      Tags:
+        - Key: Name
+          Value: DWH01-OSAKA-DWH-WODWHORA
+
+  # Tạo network ACL cho public subnet
+  NetworkAclPublicSubnet:
+    Type: AWS::EC2::NetworkAcl
+    Properties:
+      Tags:
+        - Key: Name
+          Value: DWH01-OSAKA-DWH-Prod-EXT
+      VpcId: !Ref VPC
+
+  #Liên kết NACL với public subnet
+  PublicSubnetNetworkAclAssociation:
+    Type: AWS::EC2::SubnetNetworkAclAssociation
+    Properties:
+      SubnetId:
+        Ref: PublicSubet
+      NetworkAclId: !Ref NetworkAclPublicSubnet
+
+  # Tạo network ACL cho private subnet 1
+  NetworkAclPrivateSubnet1:
+    Type: AWS::EC2::NetworkAcl
+    Properties:
+      Tags:
+        - Key: Name
+          Value: DWH01-OSAKA-DWH-Prod-INT
+      VpcId: !Ref VPC
+
+  #Liên kết NACL với private subnet 1
+  PrivateSubnet1NetworkAclAssociation:
+    Type: AWS::EC2::SubnetNetworkAclAssociation
+    Properties:
+      SubnetId:
+        Ref: PrivateSubnet1
+      NetworkAclId: !Ref NetworkAclPrivateSubnet1
+
+  #Liên kết NACL với private subnet 2
+  PrivateSubnet2NetworkAclAssociation:
+    Type: AWS::EC2::SubnetNetworkAclAssociation
+    Properties:
+      SubnetId:
+        Ref: PrivateSubnet2
+      NetworkAclId: !Ref NetworkAclPrivateSubnet1
+
+  #Tạo VPC enpoint
+  VPCEndpoint1:
+    Type: "AWS::EC2::VPCEndpoint"
+    Properties:
+      VpcEndpointType: "Interface"
+      ServiceName: !Sub "com.amazonaws.${AWS::Region}.ec2"
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: "*"
+            Action: "*"
+            Resource: "*"
+      VpcId: !Ref VPC
+      PrivateDnsEnabled: true
+      SubnetIds:
+        - !Ref PrivateSubnet1
+      SecurityGroupIds:
+        - !Ref CloudWatchEC2SG
+
+  VPCEndpoint2:
+    Type: "AWS::EC2::VPCEndpoint"
+    Properties:
+      VpcEndpointType: "Interface"
+      ServiceName: !Sub "com.amazonaws.${AWS::Region}.logs"
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: "*"
+            Action: "*"
+            Resource: "*"
+      VpcId: !Ref VPC
+      PrivateDnsEnabled: true
+      SubnetIds:
+        - !Ref PrivateSubnet1
+      SecurityGroupIds:
+        - !Ref CloudWatchMonitoringSG
+
+  VPCEndpoint3:
+    Type: "AWS::EC2::VPCEndpoint"
+    Properties:
+      VpcEndpointType: "Interface"
+      ServiceName: !Sub "com.amazonaws.${AWS::Region}.monitoring"
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: "*"
+            Action: "*"
+            Resource: "*"
+      VpcId: !Ref VPC
+      PrivateDnsEnabled: true
+      SubnetIds:
+        - !Ref PrivateSubnet1
+      SecurityGroupIds:
+        - !Ref CloudWatchMonitoringSG
+# Add the code from "2. Prepare the VPC template" here
+Outputs:
+  VpcId:
+    Value: !Ref VPC
+    Export:
+      Name: Lab62VPCId
+  PrivateSubnet1Id:
+    Value: !Ref PrivateSubnet1
+    Export:
+      Name: Lab62PrivateSubnet1Id
+  PrivateSubnet2Id:
+    Value: !Ref PrivateSubnet2
+    Export:
+      Name: Lab62PrivateSubnet2Id
+  DWHSecuritygroup:
+    Value: !Ref DWHSG
+    Export:
+      Name: DWHSecuritygroup

@@ -1,0 +1,97 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description: AWS CloudFormation workshop - Nested stacks - RDS
+
+Parameters:
+  DBInstanceIdentifier:
+    Type: String
+  DBName:
+    Type: String
+  RDSAZ:
+    Type: AWS::EC2::AvailabilityZone::Name
+  MasterUsername:
+    Type: String
+  MasterUserPassword:
+    Type: String
+  Timezone:
+    Type: String
+  DBInstanceClass:
+    Type: String
+  AllocatedStorage:
+    Type: Number
+  StorageType:
+    Type: String
+Resources:
+  rdsDBInstance:
+    Type: AWS::RDS::DBInstance
+    DependsOn:
+      - rdsDBParameterGroup
+      - rdsDBSubnetGroup
+      - rdsDBOptionGroup
+    Properties:
+      AllocatedStorage: !Ref AllocatedStorage
+      DBInstanceClass: !Ref DBInstanceClass
+      AvailabilityZone: !Ref RDSAZ
+      BackupRetentionPeriod: 0
+      CharacterSetName: JA16SJISTILDE
+      DBInstanceIdentifier: !Ref DBInstanceIdentifier
+      DBName: !Ref DBName
+      DBParameterGroupName: !Ref rdsDBParameterGroup
+      DBSubnetGroupName: !Ref rdsDBSubnetGroup
+      Engine: oracle-se2-cdb
+      EngineVersion: 19.0.0.0.ru-2023-04.rur-2023-04.r1
+      StorageType: !Ref StorageType
+      Iops: 12000
+      StorageThroughput: 500
+      StorageAutoScaling: false
+      LicenseModel: license-included
+      MasterUsername: !Ref MasterUsername
+      MasterUserPassword: !Ref MasterUserPassword
+      MultiAZ: false
+      OptionGroupName: !Ref rdsDBOptionGroup
+      Port: "1521"
+      CACertificateIdentifier: "rds-ca-rsa2048-g1"
+      PubliclyAccessible: false
+      StorageEncrypted: false
+      DeletionProtection: false
+      VPCSecurityGroups:
+        - !ImportValue DWHSecuritygroup
+      EnablePerformanceInsights: false
+      # Cấu hình bảo trì
+      AutoMinorVersionUpgrade: false # Vô hiệu hóa tự động cập nhật phiên bản nhỏ
+      NetworkType: IPv4
+      Tags:
+        - Key: Name
+          Value: WODWHORA
+
+  rdsDBParameterGroup:
+    Type: AWS::RDS::DBParameterGroup
+    Properties:
+      Description: WODWHORA-Prod-INT
+      Family: oracle-se2-cdb-19
+
+  rdsDBSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: DWH01-OSAKA-DWH-Prod-INT
+      VpcId: !ImportValue Lab62VPCId
+      SubnetIds:
+        - !ImportValue Lab62PrivateSubnet1Id
+        - !ImportValue Lab62PrivateSubnet2Id
+      Tags:
+        - Key: Name
+          Value: DWH01-OSAKA-DWH-Prod-INT
+
+  rdsDBOptionGroup:
+    Type: AWS::RDS::OptionGroup
+    Properties:
+      EngineName: "oracle-se2-cdb"
+      MajorEngineVersion: "19"
+      OptionConfigurations:
+        - OptionName: "Timezone"
+          OptionSettings:
+            - Name: "TIMEZONE"
+              Value: !Ref Timezone
+        - OptionName: "STATSPACK"
+      OptionGroupDescription: "WODWHORA-Prod-INT"
+      OptionGroupName: "wodwhora-prod-int"
