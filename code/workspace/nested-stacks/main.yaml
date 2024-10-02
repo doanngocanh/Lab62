@@ -3,27 +3,101 @@ AWSTemplateFormatVersion: "2010-09-09"
 Description: AWS CloudFormation workshop - Nested stacks - Root template (uksb-1q9p31idr) (tag:nested-stacks).
 
 Parameters:
-  S3BucketName:
-    AllowedPattern: ^[0-9a-zA-Z]+([0-9a-zA-Z-.]*[0-9a-zA-Z])*$
-    ConstraintDescription: Bucket name can include numbers, lowercase letters, uppercase letters, periods (.), and hyphens (-). It cannot start or end with a hyphen (-).
-    Description: S3 bucket name for the Nested Stacks. S3 bucket name can include numbers, lowercase letters, uppercase letters, and hyphens (-). It cannot start or end with a hyphen (-).
+  AvailabilityZones:
+    Type: List<AWS::EC2::AvailabilityZone::Name>
+    Description: The list of Availability Zones to use for the subnets in the VPC. Select 2 AZs.
+
+  VPCName:
     Type: String
+    Description: The name of the VPC.
+    Default: Lab6.2
 
-# 1. Add code from "1. Create VPC parameters in the main template" section
+  VPCCidr:
+    Type: String
+    Description: The CIDR block for the VPC.
+    Default: 10.72.0.0/16
 
-# 4. Add code from "1. Create EC2 parameters in the main template" section
+  PublicSubnet1Cidr:
+    Type: String
+    Description: The CIDR block for the public subnet located in Availability Zone 1.
+    Default: 10.72.32.0/24
+
+  PrivateSubnet1Cidr:
+    Type: String
+    Description: The CIDR block for the public subnet located in Availability Zone 2.
+    Default: 10.72.0.0/24
+
+  PrivateSubnet2Cidr:
+    Type: String
+    Description: The CIDR block for the public subnet located in Availability Zone 2.
+    Default: 10.72.1.0/24
+
+  DBInstanceIdentifier:
+    Type: String
+    Description: tên duy nhất cho DB instance.
+    Default: lab62-anh-rds
+
+  DBName:
+    Type: String
+    Description: Tên của cơ sở dữ liệu ban đầu mà bạn muốn tạo trong phiên bản RDS này
+    Default: WODWHORAA
+
+  MasterUsername:
+    Type: String
+    Description: Tên người dùng chính cho phiên bản RDS.
+    Default: Lab62Abcd1234
+
+  MasterUserPassword:
+    Type: String
+    Description: Mật khẩu cho tài khoản người dùng chính (master user).
+    Default: Lab621234@
+
+  Timezone:
+    Type: String
+    Default: Asia/Tokyo
+
+  DBInstanceClass:
+    Type: String
+    Default: db.m5.large
+
+  AllocatedStorage:
+    Type: Number
+    Default: "20"
+
+  StorageType:
+    Type: String
+    Default: gp3
 
 Resources:
-# 2. Add code from "2. Create VPC resource in the main template" section
+  VpcStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub https://lab62s3bucket-s3bucket-zfula7svttvc.s3.amazonaws.com/vpc.yaml
+      TimeoutInMinutes: 20
+      Parameters:
+        AvailabilityZones:
+          Fn::Join:
+            - ","
+            - !Ref AvailabilityZones
+        VPCCidr: !Ref VPCCidr
+        VPCName: !Ref VPCName
+        PublicSubnetCidr: !Ref PublicSubnet1Cidr
+        PrivateSubnet1Cidr: !Ref PrivateSubnet1Cidr
+        PrivateSubnet2Cidr: !Ref PrivateSubnet2Cidr
 
-# 3. Add code from "2. Create IAM resource in the main template" section
-
-# 5. Add code from "2. Create EC2 resource in main template" section
-
-# 6. Add code from "3. Add EnvironmentType to the EC2 stack" section
-
-# 7. Add code from "3. Add VpcId and SubnetId to **EC2Stack** stack" section
-
-# 8. Add code from "6. Add WebServerInstanceProfile to **EC2Stack** stack" section
-
-# 9. Add code from "Output the `WebsiteURL` in the main template" section
+  RDSStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn: VpcStack
+    Properties:
+      TemplateURL: !Sub https://lab62s3bucket-s3bucket-zfula7svttvc.s3.amazonaws.com/rds.yaml
+      TimeoutInMinutes: 20
+      Parameters:
+        RDSAZ: !Select [0, !Ref AvailabilityZones]
+        DBInstanceIdentifier: !Ref DBInstanceIdentifier
+        DBName: !Ref DBName
+        MasterUsername: !Ref MasterUsername
+        MasterUserPassword: !Ref MasterUserPassword
+        Timezone: !Ref Timezone
+        DBInstanceClass: !Ref DBInstanceClass
+        AllocatedStorage: !Ref AllocatedStorage
+        StorageType: !Ref StorageType
