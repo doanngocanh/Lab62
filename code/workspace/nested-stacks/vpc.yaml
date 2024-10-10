@@ -128,6 +128,7 @@ Resources:
   # Virtual Private Gateway Route Propagation
   VIGWyRoutePropagationPublicRt:
     Type: AWS::EC2::VPNGatewayRoutePropagation
+    DependsOn: VPCVGWAttachment
     Properties:
       RouteTableIds:
         - !Ref PublicSubnetRouteTable
@@ -135,6 +136,7 @@ Resources:
 
   VPNGatewayRoutePropagationPrivateRt1:
     Type: AWS::EC2::VPNGatewayRoutePropagation
+    DependsOn: VPCVGWAttachment
     Properties:
       RouteTableIds:
         - !Ref PrivateSubnetRouteTable1
@@ -142,6 +144,7 @@ Resources:
 
   VPNGatewayRoutePropagationPrivateRt2:
     Type: AWS::EC2::VPNGatewayRoutePropagation
+    DependsOn: VPCVGWAttachment
     Properties:
       RouteTableIds:
         - !Ref PrivateSubnetRouteTable2
@@ -491,3 +494,15 @@ Outputs:
     Value: !Ref DWHSG
     Export:
       Name: DWHSecuritygroup
+  WebFocusSG:
+    Value: !Ref WebFocusSG
+    Export:
+      Name: WebFocusSGs
+  PublicSubet:
+    Value: !Ref PublicSubet
+    Export:
+      Name: PublicSubets
+  BastionHostSG:
+    Value: !Ref BastionHostSG
+    Export:
+      Name: BastionHostSGs

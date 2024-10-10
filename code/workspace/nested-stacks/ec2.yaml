@@ -1,0 +1,51 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description: AWS CloudFormation workshop - Nested stacks - EC2
+
+Resources:
+  WEBFOCUS:
+    Type: AWS::EC2::Instance
+    Properties:
+      DisableApiTermination: false
+      ImageId: ami-022b677fdccc634eb
+      InstanceType: t2.micro
+      Monitoring: false
+      IamInstanceProfile: !Ref DWHEC2WEBFOCUSRole
+      NetworkInterfaces:
+        - AssociatePublicIpAddress: "true"
+          DeviceIndex: "0"
+          SubnetId: !ImportValue Lab62PrivateSubnet1Id
+          GroupSet:
+            - !ImportValue WebFocusSGs
+      Tags:
+        - Key: Name
+          Value: WEBFOCUS
+
+  DWHEC2WEBFOCUSRole:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Path: /
+      Roles:
+        - !ImportValue DWHEC2WEBFOCUSRole
+
+  BASTION:
+    Type: AWS::EC2::Instance
+    Properties:
+      DisableApiTermination: false
+      ImageId: ami-022b677fdccc634eb
+      InstanceType: t2.micro
+      Monitoring: false
+      NetworkInterfaces:
+        - AssociatePublicIpAddress: "true"
+          DeviceIndex: "0"
+          SubnetId: !ImportValue PublicSubets
+          GroupSet:
+            - !ImportValue BastionHostSGs
+      Tags:
+        - Key: Name
+          Value: BASTION
+
+  eipName:
+    Type: AWS::EC2::EIP
+    Properties:
+      InstanceId: !Ref BASTION

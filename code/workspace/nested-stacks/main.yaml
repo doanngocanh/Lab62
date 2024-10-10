@@ -64,11 +64,24 @@ Parameters:
     Type: String
     Default: gp3
 
+  PolicyName1:
+    Type: String
+    Default: Comm-Create-EC2-Tag
+
+  PolicyName2:
+    Type: String
+    Default: DWH-EC2-Auto-StartStop
+
+  PolicyName3:
+    Type: String
+    Default: DWH-RDS-Auto-StartStop
+
 Resources:
   VpcStack:
     Type: AWS::CloudFormation::Stack
+    DependsOn: IamStack
     Properties:
-      TemplateURL: !Sub https://lab62s3bucket-s3bucket-zfula7svttvc.s3.amazonaws.com/vpc.yaml
+      TemplateURL: !Sub https://lab62s3bucket-s3bucket-ai9m8bvsjwkw.s3.amazonaws.com/vpc.yaml
       TimeoutInMinutes: 20
       Parameters:
         AvailabilityZones:
@@ -81,18 +94,35 @@ Resources:
         PrivateSubnet1Cidr: !Ref PrivateSubnet1Cidr
         PrivateSubnet2Cidr: !Ref PrivateSubnet2Cidr
 
-  RDSStack:
+  #  RDSStack:
+  #    Type: AWS::CloudFormation::Stack
+  #    DependsOn: VpcStack
+  #    Properties:
+  #      TemplateURL: !Sub https://lab62s3bucket-s3bucket-jrsmhzxaymdb.s3.amazonaws.com/rds.yaml
+  #      TimeoutInMinutes: 20
+  #      Parameters:
+  #        RDSAZ: !Select [0, !Ref AvailabilityZones]
+  #        DBInstanceIdentifier: !Ref DBInstanceIdentifier
+  #        DBName: !Ref DBName
+  #        MasterUsername: !Ref MasterUsername
+  #        MasterUserPassword: !Ref MasterUserPassword
+  #        DBInstanceClass: !Ref DBInstanceClass
+  #        AllocatedStorage: !Ref AllocatedStorage
+  #        StorageType: !Ref StorageType
+
+  IamStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub https://lab62s3bucket-s3bucket-ai9m8bvsjwkw.s3.amazonaws.com/iam.yaml
+      TimeoutInMinutes: 10
+      Parameters:
+        PolicyName1: !Ref PolicyName1
+        PolicyName2: !Ref PolicyName2
+        PolicyName3: !Ref PolicyName3
+
+  EC2Stack:
     Type: AWS::CloudFormation::Stack
     DependsOn: VpcStack
     Properties:
-      TemplateURL: !Sub https://lab62s3bucket-s3bucket-zfula7svttvc.s3.amazonaws.com/rds.yaml
-      TimeoutInMinutes: 20
-      Parameters:
-        RDSAZ: !Select [0, !Ref AvailabilityZones]
-        DBInstanceIdentifier: !Ref DBInstanceIdentifier
-        DBName: !Ref DBName
-        MasterUsername: !Ref MasterUsername
-        MasterUserPassword: !Ref MasterUserPassword
-        DBInstanceClass: !Ref DBInstanceClass
-        AllocatedStorage: !Ref AllocatedStorage
-        StorageType: !Ref StorageType
+      TemplateURL: !Sub https://lab62s3bucket-s3bucket-ai9m8bvsjwkw.s3.amazonaws.com/ec2.yaml
+      TimeoutInMinutes: 10
